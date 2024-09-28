@@ -1,6 +1,8 @@
 const express = require('express');
 // import express 
 require('dotenv').config()
+const dbConnect = require('./config/dbconnect.js');
+const initRouter = require('./routes/index.js');
 
 const app = express();
 const port = process.env.PORT || 8888
@@ -9,10 +11,9 @@ const port = process.env.PORT || 8888
 app.use(express.json());
 // Đọc được data gửi kiểu array object
 app.use(express.urlencoded({extended: true}));
+dbConnect()
+initRouter(app)
 
-app.use('/', (req, res) => {
-    res.send('Server online')
-})
 
 app.listen(port, () => {
     console.log('server listening on the port: '+ port);
