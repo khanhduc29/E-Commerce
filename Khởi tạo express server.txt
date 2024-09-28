@@ -1,0 +1,12 @@
+Khởi tạo express server 
+
+npm init -y
+
+cài các thư viện cần thiết
+
+npm install dotenv express-async-handler jsonwebtoken mongoose bcrypt
+
+
+npm i -D nodemon
+
+
