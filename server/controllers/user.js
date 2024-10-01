@@ -5,7 +5,11 @@ const asynncHandler = require('express-async-handler')
 const {genneratesAcessToken, genneratesRefreshToken} = require('../middlewares/jwt');
 // const { response } = require('express');
 const jwt = require('jsonwebtoken');
+const sendMail = require('../ultils/sendMail')
+const crypto = require('crypto');
 
+
+// dky
 const registerUser = asynncHandler(async (req, res) => {
     const {email, password, firstname, lastname} = req.body;
     if(!email || !firstname || !lastname || !password){
@@ -51,19 +55,19 @@ const login = asynncHandler(async (req, res) => {
     // console.log(await response.isCrorrectPassword(password))
     if(response && await response.isCrorrectPassword(password)){
         // tách password và role ra khỏi response
-        const {password, role, ...userData} = response.toObject();
+        const {password, role,refreshToken, ...userData} = response.toObject();
         // Tạo accessToken
         const accessToken = genneratesAcessToken(response._id, role)
         // Tạo refreshToken
-        const refreshToken = genneratesRefreshToken(response._id)
+        const newrefreshToken = genneratesRefreshToken(response._id)
         // Lưu refeshToken vào database
-        await User.findByIdAndUpdate(response._id, {refreshToken }, {new:true})
+        await User.findByIdAndUpdate(response._id, {refreshToken: newrefreshToken }, {new:true})
         // Lưu refreshToken vào cookie
-        res.cookie('refreshToken', refreshToken, {httpOnly:true, maxAge: 7*24*60*60*1000})
+        res.cookie('refreshToken', newrefreshToken, {httpOnly:true, maxAge: 7*24*60*60*1000})
         return res.status(200).json({
             success: true,
             accessToken,
-            userData: userData
+            userData
         })
     }else{
         throw new Error('Invalid credentials!')
@@ -79,7 +83,7 @@ const getCurrent = asynncHandler(async (req, res) => {
     const user = await User.findById(_id).select('-refreshToken -password -role');
     
     return res.status(200).json({
-        success: user,
+        success: user ? true : false,
         re: user ? user : 'User not found'
     })
     
@@ -92,21 +96,134 @@ const refreshAccessToken = asynncHandler(async(req, res) => {
     // Check xem có tooken hay không
     if(!cookie  && !cookie.refreshToken) throw new Error('No refresh token in cookie')
     // Check token có hợp lệ hay không
-    jwt.verify(cookie.refreshToken, process.env.JWT_SECRET, async (err, decode) => {
-        if(err) throw new Error('Invalid refresh token') 
-        // Check xme token có khớp với token đã lưu trong db k
-        const response = await User.findOne({_id: decode._id, refreshToken: cookie.refreshToken});
-        return res.status(200).json({
+    const rs = await jwt.verify(cookie.refreshToken, process.env.JWT_SECRET)
+    const response = await User.findOne({_id: rs._id, refreshToken: cookie.refreshToken})
+    return res.status(200).json({
             success: response ? true : false,
-            newAccessToken: response ? genneratesAcessToken({_id: response._id, role: response.role}) : 'Refresh token mot mached'
+            newAccessToken: response ? genneratesAcessToken(response._id, response.role) : 'Refresh token not matching'
+    })
+    
+})
 
-        })
-    })  
+// Log out
+const logout = asynncHandler(async(req, res) => {
+  
+    const cookie = req.cookies;
+    if(!cookie || !cookie.refreshToken) throw new Error('No refresh token in cookie')
+    // Tìm và xóa refresh token ở db
+    await User.findOneAndUpdate({refreshToken: cookie.refreshToken}, {refreshToken: ''}, {new: true})
+    // Xóa refresh token ở cookie trình duyệt
+    res.clearCookie('refreshToken', {
+        httpOnly: true,
+        secure: true
+    })
+    return res.status(200).json({
+        success: true,
+        mes: 'logout in done'
+    })
+
+    
+})
+
+// Client gửi mail
+// Server check email có hợp lệ hay không => Gửi mail + kèm theo link (password change token)
+// Báo phía client check mail => click vào link gửi trong mail đó
+// Client sẽ gửi api kèm theo token
+// Check token có giống token mà server gửi mail hây không
+// Change password
+
+const forgotPassword = asynncHandler(async(req, res)=> {
+    const {email} = req.query;
+    if(!email) throw new Error('Missing email')
+    const user = await User.findOne({ email })
+    if(!user) throw new Error('User not found')
+    const resetToken = user.createPasswordChangeToken()
+    await user.save()
+
+    const html = `Xin vui lòng click vào link dưới đây để thay đổi mật khẩu của bạn.Link này sẽ hết hạn sau 15 phút kể từ bây giờ <a href=${process.env.URL_SERVER}/api/user/reset-password/${resetToken}>Click here</a>`
+    const data = {
+        email,
+        html
+    }
+    const rs = await sendMail(data)
+    return res.status(200).json({
+        success: true ,
+        rs
+    })
+})
+
+// 
+const resetPassword = asynncHandler(async(req, res) => {
+
+    const {password, token} = req.body
+    if(!password || !token) throw new Error('Missing input')
+    const passwordResetToken = crypto.createHash('sha256').update(token).digest('hex')
+    const user = await User.findOne({passwordResetToken, passwordResetExpires: {$gt: Date.now()}})
+    if(!user) throw new Error('Invalid reset token')
+    user.password = password
+    user.passwordResetToken = undefined
+    user.passwordChangeAt = Date.now()
+    user.passwordResetExpires = undefined
+    await user.save()
+    return res.status(200).json({
+        success: user ? true : false,
+        mes: user ? 'Updated password': 'Something went wrong'
+    })
+})
+
+// get users
+const getUsers = asynncHandler(async(req, res) => {
+    const response = await User.find().select('-refreshToken -password -role')
+    return res.status(200).json({
+        success: response ? true : false,
+        users: response
+    })
+})
+
+
+// deleteuser 
+const deleteUser = asynncHandler(async(req, res) => {
+    const {_id} = req.query
+    if(!_id) throw new Error('Missing input')
+    const response = await User.findByIdAndDelete(_id)
+    return res.status(200).json({
+        success: response ? true : false,
+        deletedUser: response ? `User with email ${response.email} deleted` : 'No user delete'
+    })
+})
+
+// update user
+const updateUser = asynncHandler(async(req, res) => {
+    const {_id} = req.user
+    if(!_id || Object.keys(req.body).length === 0) throw new Error('Missing input')
+    const response = await User.findByIdAndUpdate(_id, req.body, {new: true}).select('-password -role')
+    return res.status(200).json({
+        success: response ? true : false,
+        updatedUser: response ? response : 'Some thing went wrong'
+    })
+})
+
+// update user by admin
+const updateUserByAdmin = asynncHandler(async(req, res) => {
+    const {uid} = req.params
+    if(Object.keys(req.body).length === 0) throw new Error('Missing input')
+    const response = await User.findByIdAndUpdate(uid, req.body, {new: true}).select('-password -role -refreshToken')
+    return res.status(200).json({
+        success: response ? true : false,
+        updatedUser: response ? response : 'Some thing went wrong'
+    })
 })
 
 module.exports = {
     registerUser,
     login,
     getCurrent,
-    refreshAccessToken
+    refreshAccessToken,
+    logout,
+    forgotPassword,
+    resetPassword,
+    getUsers,
+    deleteUser,
+    updateUser,
+    updateUserByAdmin
 }

@@ -2,6 +2,7 @@
 
 const mongoose = require('mongoose'); // Erase if already required
 const bcrypt = require('bcrypt'); // Erase if already required
+const crypto = require('crypto'); // Erase if already required
 // Chuỗi băm mật khẩu tăng tính bảo mật
 // Declare the Schema of the Mongo model
 var userSchema = new mongoose.Schema({
@@ -81,8 +82,15 @@ userSchema.pre('save', async function(next) {
 userSchema.methods = {
     isCrorrectPassword: async function(pass){
         return  await bcrypt.compare(pass, this.password);
+    },
+    createPasswordChangeToken: function(){
+        const resetToken = crypto.randomBytes(32).toString('hex')
+        this.passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex')
+        this.passwordResetExpires = Date.now() + 15 * 60 * 1000
+        return resetToken
     }
 }
+
 
 //Export the model
 module.exports = mongoose.model('User', userSchema);
