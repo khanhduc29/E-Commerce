@@ -28,14 +28,67 @@ const getProduct = asyncHandler(async(req, res) => {
 // get all product //filltering: lấy sản phẩm theo điều kiện 
 //sorting Lấy sản phẩm theo sắp xếp 
 //pagination lấy sản phẩm theo phân trang
-const getProducts = asyncHandler(async(req, res) => {
- 
-    const product = await Product.find()
-    return res.status(200).json({
-        success: product ? true : false,
-        productData: product ? product : 'Cannot get product'
-    })
-})
+// Filtering, sorting & pagination
+const getProducts = asyncHandler(async (req, res) => {
+    const queries = { ...req.query };
+    // Filter special fildes on query
+    const excludeFields = ['limit', 'sort', 'page', 'fields'];
+    excludeFields.forEach((el) => delete queries[el]);
+
+    //Format operators for valid syntax mongoose query
+    let queryString = JSON.stringify(queries);
+    queryString = queryString.replace(
+        /\b(gte|gt|lt|lte)\b/g,
+        (matchedEl) => `$${matchedEl}`,
+    );
+    const formatedQueries = JSON.parse(queryString);
+
+    //filter
+    if (queries?.title)
+        formatedQueries.title = { $regex: queries.title, $options: 'i' };
+    let queryCommand = Product.find(formatedQueries);
+
+    //sorting
+    if (req.query.sort) {
+        const sortBy = req.query.sort.split(',').join(' ');
+        queryCommand = queryCommand.sort(sortBy);
+    }
+
+    //fields limiting
+    if (req.query.fields) {
+        const fields = req.query.fields.split(',').join(' ');
+        queryCommand = queryCommand.select(fields);
+    }
+
+    //Pagination
+    //limit: số object
+    //skip
+
+    const page = +req.query.page || 1;
+    const limit = +req.query.limit || process.env.LIMIT_PRODUCTS;
+    const skip = (page - 1) * limit;
+    queryCommand.skip(skip).limit(limit);
+
+    queryCommand
+        .then(async (response) => {
+            const counts = await Product.find(formatedQueries).countDocuments();
+            return res.status(200).json({
+                success: response ? true : false,
+                counts,
+                products: response ? response : 'Cannot get products',
+            });
+        })
+        .catch((error) => {
+            throw new Error(error.message);
+        });
+});
+// sort: -price, -brand
+// tile: Máy
+// price[gt] = 2000 lớn hơn hoặc bằng
+// price[lt] = 2000 nhỏ hơn hoặc bằng
+// fields: -description // loại trừ nếu không muốn hiển thị
+// bỏ trừ thì lấy mỗi trường đó
+
 
 // Update product
 const updateProduct = asyncHandler(async(req, res) => {
