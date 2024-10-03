@@ -52,14 +52,14 @@ var userSchema = new mongoose.Schema({
         type: String,
         enum: ['Black', 'Grown', 'Green']
     },
-    rating: [
+    ratings: [
         {
             star: {type: Number},
             postedBy: {type:mongoose.Types.ObjectId,ref: 'User'}, //Nguời vote
             comment: {type: String}
         }
     ],
-    totalRating:{
+    totalRatings:{
         type: Number,
         default: 0
     }
