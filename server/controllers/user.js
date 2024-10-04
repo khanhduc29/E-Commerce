@@ -1,7 +1,7 @@
 
 const User = require('../models/user');
 
-const asynncHandler = require('express-async-handler')
+const asyncHandler = require('express-async-handler')
 const {genneratesAcessToken, genneratesRefreshToken} = require('../middlewares/jwt');
 // const { response } = require('express');
 const jwt = require('jsonwebtoken');
@@ -9,8 +9,8 @@ const sendMail = require('../ultils/sendMail')
 const crypto = require('crypto');
 
 
-// dky
-const registerUser = asynncHandler(async (req, res) => {
+// dk
+const registerUser = asyncHandler(async (req, res) => {
     const {email, password, firstname, lastname} = req.body;
     if(!email || !firstname || !lastname || !password){
         return res.status(400).json({
@@ -38,45 +38,47 @@ const registerUser = asynncHandler(async (req, res) => {
 // Refresh token -> Cấp mới access token
 // Access token -> Xác thực người dùng, phân quyền người dùng
 
-const login = asynncHandler(async (req, res) => {
-
-    const {email, password} = req.body;
-
-    if(!email || !password){
+const login = asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password)
         return res.status(400).json({
-            success: false,
-            mes: 'Missing inputs'
-        })
-      
-    }
+            sucess: false,
+            mes: 'Missing inputs',
+        });
     // plain object
-
     const response = await User.findOne({ email });
-    // console.log(await response.isCrorrectPassword(password))
-    if(response && await response.isCrorrectPassword(password)){
-        // tách password và role ra khỏi response
-        const {password, role,refreshToken, ...userData} = response.toObject();
-        // Tạo accessToken
-        const accessToken = genneratesAcessToken(response._id, role)
-        // Tạo refreshToken
-        const newrefreshToken = genneratesRefreshToken(response._id)
-        // Lưu refeshToken vào database
-        await User.findByIdAndUpdate(response._id, {refreshToken: newrefreshToken }, {new:true})
-        // Lưu refreshToken vào cookie
-        res.cookie('refreshToken', newrefreshToken, {httpOnly:true, maxAge: 7*24*60*60*1000})
-        return res.status(200).json({
-            success: true,
-            accessToken,
-            userData
-        })
-    }else{
-        throw new Error('Invalid credentials!')
-    }
     
+    if (response && (await response.isCorrectPassword(password))) {
+        // Tách password và role ra khỏi response
+        const { password, role, refreshToken, ...userData } =
+            response.toObject();
+        // Tạo access token
+        const accessToken = genneratesAcessToken(response._id, role);
+        // Tạo refresh token
+        const newRefreshToken = genneratesRefreshToken(response._id);
+        // Lưu refresh token vào database
+        await User.findByIdAndUpdate(
+            response._id,
+            { refreshToken: newRefreshToken },
+            { new: true },
+        );
+        // Lưu refresh token vào cookie
+        res.cookie('refreshToken', newRefreshToken, {
+            httpOnly: true,
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+        return res.status(200).json({
+            sucess: true,
+            accessToken,
+            userData,
+        });
+    } else {
+        throw new Error('Invalid credentials!');
+    }
 });
 
 // Get a user
-const getCurrent = asynncHandler(async (req, res) => {
+const getCurrent = asyncHandler(async (req, res) => {
     const {_id} = req.user;
   
     // Không muốn lấy trường nào thì - cái đó
@@ -90,7 +92,7 @@ const getCurrent = asynncHandler(async (req, res) => {
 });
 
 // refresh token
-const refreshAccessToken = asynncHandler(async(req, res) => {
+const refreshAccessToken = asyncHandler(async(req, res) => {
     // Lấy token từ cookie
     const cookie = req.cookies
     // Check xem có tooken hay không
@@ -106,7 +108,7 @@ const refreshAccessToken = asynncHandler(async(req, res) => {
 })
 
 // Log out
-const logout = asynncHandler(async(req, res) => {
+const logout = asyncHandler(async(req, res) => {
   
     const cookie = req.cookies;
     if(!cookie || !cookie.refreshToken) throw new Error('No refresh token in cookie')
@@ -132,7 +134,7 @@ const logout = asynncHandler(async(req, res) => {
 // Check token có giống token mà server gửi mail hây không
 // Change password
 
-const forgotPassword = asynncHandler(async(req, res)=> {
+const forgotPassword = asyncHandler(async(req, res)=> {
     const {email} = req.query;
     if(!email) throw new Error('Missing email')
     const user = await User.findOne({ email })
@@ -153,7 +155,7 @@ const forgotPassword = asynncHandler(async(req, res)=> {
 })
 
 // 
-const resetPassword = asynncHandler(async(req, res) => {
+const resetPassword = asyncHandler(async(req, res) => {
 
     const {password, token} = req.body
     if(!password || !token) throw new Error('Missing input')
@@ -172,7 +174,7 @@ const resetPassword = asynncHandler(async(req, res) => {
 })
 
 // get users
-const getUsers = asynncHandler(async(req, res) => {
+const getUsers = asyncHandler(async(req, res) => {
     const response = await User.find().select('-refreshToken -password -role')
     return res.status(200).json({
         success: response ? true : false,
@@ -182,7 +184,7 @@ const getUsers = asynncHandler(async(req, res) => {
 
 
 // deleteuser 
-const deleteUser = asynncHandler(async(req, res) => {
+const deleteUser = asyncHandler(async(req, res) => {
     const {_id} = req.query
     if(!_id) throw new Error('Missing input')
     const response = await User.findByIdAndDelete(_id)
@@ -193,7 +195,7 @@ const deleteUser = asynncHandler(async(req, res) => {
 })
 
 // update user
-const updateUser = asynncHandler(async(req, res) => {
+const updateUser = asyncHandler(async(req, res) => {
     const {_id} = req.user
     if(!_id || Object.keys(req.body).length === 0) throw new Error('Missing input')
     const response = await User.findByIdAndUpdate(_id, req.body, {new: true}).select('-password -role')
@@ -204,7 +206,7 @@ const updateUser = asynncHandler(async(req, res) => {
 })
 
 // update user by admin
-const updateUserByAdmin = asynncHandler(async(req, res) => {
+const updateUserByAdmin = asyncHandler(async(req, res) => {
     const {uid} = req.params
     if(Object.keys(req.body).length === 0) throw new Error('Missing input')
     const response = await User.findByIdAndUpdate(uid, req.body, {new: true}).select('-password -role -refreshToken')
@@ -213,6 +215,83 @@ const updateUserByAdmin = asynncHandler(async(req, res) => {
         updatedUser: response ? response : 'Some thing went wrong'
     })
 })
+
+const updateUserAddress = asyncHandler(async (req, res) => {
+    const { _id } = req.user;
+
+   
+    if (!req.body.address) throw new Error('Missing inputs');
+    
+    let addressToUpdate = req.body.address;
+
+  
+    if (typeof addressToUpdate === 'string') {
+        addressToUpdate = [addressToUpdate];
+    }
+
+    const response = await User.findByIdAndUpdate(
+        _id,
+        { $push: { address: { $each: addressToUpdate } } },  // Use $each to push an array
+        { new: true },
+    ).select('-password -role -refreshToken');
+
+    return res.status(200).json({
+        success: !!response,
+        updatedUser: response || 'Something went wrong',
+    });
+});
+
+
+const updateUserCart = asyncHandler(async (req, res) => {
+    const { _id } = req.user;
+    const { pid, quantity, color } = req.body;
+    if (!pid || !quantity || !color) throw new Error('Missing inputs');
+    const user = await User.findById(_id);
+    const alreadyProduct = user.cart.find(
+        (el) => el.product.toString() === pid,
+    );
+    if (alreadyProduct) {
+        if (alreadyProduct.color === color) {
+            const response = await User.updateOne(
+                { cart: { $elemMatch: alreadyProduct } },
+                { $set: { 'cart.$.quantity': quantity } },
+                { new: true },
+            );
+            return res.status(200).json({
+                success: response ? true : false,
+                updatedUser: response ? response : 'Some thing went wrong',
+            });
+        } else {
+            const response = await User.findByIdAndUpdate(
+                _id,
+                {
+                    $push: {
+                        cart: { product: pid, quantity, color },
+                    },
+                },
+                { new: true },
+            );
+            return res.status(200).json({
+                success: response ? true : false,
+                updatedUser: response ? response : 'Some thing went wrong',
+            });
+        }
+    } else {
+        const response = await User.findByIdAndUpdate(
+            _id,
+            {
+                $push: {
+                    cart: { product: pid, quantity, color },
+                },
+            },
+            { new: true },
+        );
+        return res.status(200).json({
+            success: response ? true : false,
+            updatedUser: response ? response : 'Some thing went wrong',
+        });
+    }
+});
 
 module.exports = {
     registerUser,
@@ -225,5 +304,7 @@ module.exports = {
     getUsers,
     deleteUser,
     updateUser,
-    updateUserByAdmin
+    updateUserByAdmin,
+    updateUserAddress,
+    updateUserCart
 }
