@@ -9,6 +9,11 @@ const createNewOrder = asyncHandler(async (req, res) => {
     const userCart = await User.findById(_id)
         .select('cart')
         .populate('cart.product', 'title price');
+
+    // return res.status(200).json({
+    //     success: userCart ? true : false,
+    //     rs: userCart ? userCart : 'Somthing went wrong'
+    // })
     const products = userCart?.cart?.map((el) => ({
         product: el.product._id,
         count: el.quantity,
@@ -18,13 +23,12 @@ const createNewOrder = asyncHandler(async (req, res) => {
         (sum, el) => el.product.price * el.quantity + sum,
         0,
     );
-    const createData = { products, total, orderBy: _id };
+    const createData = { products,  total, orderBy: _id };
 
     if (coupon) {
         const selectedCoupon = await Coupon.findById(coupon);
         total =
-            Math.round(total * (1 - +selectedCoupon?.discount / 100)) * 1000 ||
-            total;
+            Math.round(total * (1 - +selectedCoupon?.discount / 100) / 1000) * 1000 || total;
         createData.total = total;
         createData.coupon = coupon;
     }
@@ -46,7 +50,7 @@ const updateStatus = asyncHandler(async (req, res) => {
     );
     return res.json({
         success: response ? true : false,
-        response: response ? response : 'Cannot create',
+        response: response ? response : 'Something went wrong',
     });
 });
 
@@ -55,7 +59,7 @@ const getUserOrder = asyncHandler(async (req, res) => {
     const response = await Order.find({ orderBy: _id });
     return res.json({
         success: response ? true : false,
-        response: response ? response : 'Cannot create',
+        response: response ? response : 'Something went wrong',
     });
 });
 
@@ -63,7 +67,7 @@ const getOrders = asyncHandler(async (req, res) => {
     const response = await Order.find();
     return res.json({
         success: response ? true : false,
-        response: response ? response : 'Cannot create',
+        response: response ? response : 'Something went wrong',
     });
 });
 
