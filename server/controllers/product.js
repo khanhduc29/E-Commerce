@@ -4,20 +4,20 @@ const asyncHandler = require('express-async-handler')
 const slugify = require('slugify')
 
 // Tạo mới sản phẩm
-const createProduct = asyncHandler(async(req, res ) => {
-    if(Object.keys(req.body).length === 0) throw new Error('Missing inputs')
-    if(req.body && req.body.title) req.body.slug = slugify(req.body.title)
+const createProduct = asyncHandler(async (req, res) => {
+    if (Object.keys(req.body).length === 0) throw new Error('Missing inputs')
+    if (req.body && req.body.title) req.body.slug = slugify(req.body.title)
     const newProduct = await Product.create(req.body)
     return res.status(200).json({
         success: newProduct ? true : false,
         createProduct: newProduct ? newProduct : 'Cannot create new product'
     })
-    
+
 })
 
 // get product
-const getProduct = asyncHandler(async(req, res) => {
-    const {pid} = req.params
+const getProduct = asyncHandler(async (req, res) => {
+    const { pid } = req.params
     const product = await Product.findById(pid)
     return res.status(200).json({
         success: product ? true : false,
@@ -91,10 +91,10 @@ const getProducts = asyncHandler(async (req, res) => {
 
 
 // Update product
-const updateProduct = asyncHandler(async(req, res) => {
-    const {pid} = req.params
-    if(req.body && req.body.title) req.body.slug = slugify(req.body.title)
-    const updateProduct = await Product.findByIdAndUpdate(pid, req.body, {new: true})
+const updateProduct = asyncHandler(async (req, res) => {
+    const { pid } = req.params
+    if (req.body && req.body.title) req.body.slug = slugify(req.body.title)
+    const updateProduct = await Product.findByIdAndUpdate(pid, req.body, { new: true })
     return res.status(200).json({
         success: updateProduct ? true : false,
         updateProduct: updateProduct ? updateProduct : 'Cannot update product'
@@ -102,8 +102,8 @@ const updateProduct = asyncHandler(async(req, res) => {
 })
 
 // delete product
-const deleteProduct = asyncHandler(async(req, res) => {
-    const {pid} = req.params
+const deleteProduct = asyncHandler(async (req, res) => {
+    const { pid } = req.params
     const deleteProduct = await Product.findByIdAndDelete(pid)
     return res.status(200).json({
         success: true,
@@ -161,7 +161,7 @@ const ratings = asyncHandler(async (req, res) => {
 });
 
 // 
-const uploadImageProduct = asyncHandler(async (req, res) => {
+const uploadImageProductNewUrl = asyncHandler(async (req, res) => {
     const { pid } = req.params;
     if (!req.files) throw new Error('No files');
     const response = await Product.findByIdAndUpdate(
@@ -178,6 +178,22 @@ const uploadImageProduct = asyncHandler(async (req, res) => {
 });
 
 
+const uploadImageProduct = asyncHandler(async (req, res) => {
+    const { pid } = req.params;
+    if (!req.files) throw new Error('No files');
+    const response = await Product.findByIdAndUpdate(
+        pid,
+        {
+            images: req.files.map((el) => el.path),
+        },
+        { new: true },
+    );
+    return res.status(200).json({
+        status: response ? true : false,
+        updatedProduct: response ? response : 'Cannot upload image',
+    });
+});
+
 module.exports = {
     createProduct,
     getProduct,
@@ -185,5 +201,6 @@ module.exports = {
     updateProduct,
     deleteProduct,
     ratings,
-    uploadImageProduct
+    uploadImageProduct,
+    uploadImageProductNewUrl
 }
