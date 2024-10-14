@@ -6,6 +6,7 @@ const uploader = require('../config/cloudinary.config')
 router.post('/',verifyAccessToken, isAdmin, controller.createProduct )
 router.get('/admin', controller.getProducts)
 router.put('/ratings',verifyAccessToken, controller.ratings)
+router.post('/uploadImageProduct/:pid',verifyAccessToken, isAdmin,uploader.array('images', 10), controller.uploadImageProductNewUrl)
 router.put('/uploadImageProduct/:pid',verifyAccessToken, isAdmin,uploader.array('images', 10), controller.uploadImageProduct)
 
 router.put('/:pid',verifyAccessToken, isAdmin, controller.updateProduct);
