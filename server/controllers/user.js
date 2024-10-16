@@ -262,39 +262,49 @@ const updateUserAddress = asyncHandler(async (req, res) => {
 
 
 const updateUserCart = asyncHandler(async (req, res) => {
+
     const { _id } = req.user;
     const { pid, quantity, color } = req.body;
     if (!pid || !quantity || !color) throw new Error('Missing inputs');
+    if (quantity <= 0)  throw new Error('Invalid quantity')
     const user = await User.findById(_id);
     const alreadyProduct = user.cart.find(
-        (el) => el.product.toString() === pid,
+        (el) => el.product.toString() === pid && el.color === color,
+
     );
+
+
+    console.log("alreadyProduct: ", alreadyProduct);
+
     if (alreadyProduct) {
-        if (alreadyProduct.color === color) {
-            const response = await User.updateOne(
-                { cart: { $elemMatch: alreadyProduct } },
-                { $set: { 'cart.$.quantity': quantity } },
-                { new: true },
-            );
-            return res.status(200).json({
-                success: response ? true : false,
-                updatedUser: response ? response : 'Some thing went wrong',
-            });
-        } else {
-            const response = await User.findByIdAndUpdate(
-                _id,
-                {
-                    $push: {
-                        cart: { product: pid, quantity, color },
-                    },
-                },
-                { new: true },
-            );
-            return res.status(200).json({
-                success: response ? true : false,
-                updatedUser: response ? response : 'Some thing went wrong',
-            });
-        }
+   
+        const response = await User.updateOne(
+            { cart: { $elemMatch: alreadyProduct } },
+            { $set: { 'cart.$.quantity': quantity } },
+            { new: true },
+        );
+        return res.status(200).json({
+            success: response ? true : false,
+            updatedUser: response ? response : 'Some thing went wrong',
+        });
+        // if (alreadyProduct.color === color) {
+           
+        // } 
+        // else {
+        //     const response = await User.findByIdAndUpdate(
+        //         _id,
+        //         {
+        //             $push: {
+        //                 cart: { product: pid, quantity, color },
+        //             },
+        //         },
+        //         { new: true },
+        //     );
+        //     return res.status(200).json({
+        //         success: response ? true : false,
+        //         updatedUser: response ? response : 'Some thing went wrong',
+        //     });
+        // }
     } else {
         const response = await User.findByIdAndUpdate(
             _id,

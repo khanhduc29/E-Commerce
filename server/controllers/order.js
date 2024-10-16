@@ -19,11 +19,15 @@ const createNewOrder = asyncHandler(async (req, res) => {
         count: el.quantity,
         color: el.color,
     }));
+    // console.log("count: ", count)
+
     let total = userCart?.cart?.reduce(
         (sum, el) => el.product.price * el.quantity + sum,
         0,
     );
     const createData = { products,  total, orderBy: _id };
+
+    console.log("total: ",total)
 
     if (coupon) {
         const selectedCoupon = await Coupon.findById(coupon);
