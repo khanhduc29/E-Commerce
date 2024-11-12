@@ -99,52 +99,87 @@ const getCurrent = asyncHandler(async (req, res) => {
 });
 
 // refresh token
+// const refreshAccessToken = asyncHandler(async (req, res, next) => {
+//     // Lấy token từ cookie
+//     const cookie = req.cookies
+//     // Check xem có tooken hay không
+//     if (!cookie && !cookie.refreshToken) throw new Error('No refresh token in cookie')
+//     // Check token có hợp lệ hay không
+//     const rs = await jwt.verify(cookie.refreshToken, process.env.JWT_SECRET)
+//     const response = await User.findOne({ _id: rs._id, refreshToken: cookie.refreshToken })
+//     const newAccessToken = genneratesAcessToken(response._id, response.role)
+//     // Lưu access token vào cookie
+//     res.cookie('accessToken', newAccessToken, {
+//         httpOnly: true,
+//         maxAge: process.env.ACCESS_TOKEN_MAX_AGE,
+//     });
+//     if (next) {
+//         req.user = jwt.decode(newAccessToken)
+//         next();
+//     }
+//     else {
+//         return res.status(200).json({
+//             success: response ? true : false,
+//             newAccessToken: response ? newAccessToken : 'Refresh token not matching'
+//         })
+//     }
+
+// })
+
+
 const refreshAccessToken = asyncHandler(async (req, res, next) => {
-    // Lấy token từ cookie
-    const cookie = req.cookies
-    // Check xem có tooken hay không
-    if (!cookie && !cookie.refreshToken) throw new Error('No refresh token in cookie')
+    // Get token from cookie
+    const cookie = req.cookies;
+    // console.log('cookie refeshe token: ', cookie.refreshToken);
+  
+    //Check token
+    if (!cookie && !cookie.refreshToken) {
+      throw new Error('No refresh token');
+    }
+  
     // Check token có hợp lệ hay không
-    const rs = await jwt.verify(cookie.refreshToken, process.env.JWT_SECRET)
-    const response = await User.findOne({ _id: rs._id, refreshToken: cookie.refreshToken })
-    const newAccessToken = genneratesAcessToken(response._id, response.role)
+    const rs = await jwt.verify(cookie.refreshToken, process.env.JWT_SECRET);
+    const response = await User.findOne({
+      _id: rs._id,
+      refreshToken: cookie.refreshToken,
+    });
+    const newAccessToken = generateAccessToken(response._id, response.role);
     // Lưu access token vào cookie
     res.cookie('accessToken', newAccessToken, {
-        httpOnly: true,
-        maxAge: process.env.ACCESS_TOKEN_MAX_AGE,
+      httpOnly: true,
+      maxAge: process.env.ACCESS_TOKEN_MAX_AGE,
+      secure: true,
+      sameSite: 'None',
     });
     if (next) {
-        req.user = jwt.decode(newAccessToken)
-        next();
+      req.user = jwt.decode(newAccessToken);
+      next();
+    } else {
+      return res.status(200).json({
+        success: response ? true : false,
+        newAccessToken: response ? newAccessToken : 'Refresh token not matching',
+      });
     }
-    else {
-        return res.status(200).json({
-            success: response ? true : false,
-            newAccessToken: response ? newAccessToken : 'Refresh token not matching'
-        })
-    }
-
-})
-
-// Log out
-const logout = asyncHandler(async (req, res) => {
-
+  });
+  
+  // Đăng xuất
+  const logout = asyncHandler(async (req, res) => {
     const cookie = req.cookies;
-    if (!cookie || !cookie.refreshToken) throw new Error('No refresh token in cookie')
-    // Tìm và xóa refresh token ở db
-    await User.findOneAndUpdate({ refreshToken: cookie.refreshToken }, { refreshToken: '' }, { new: true })
-    // Xóa refresh token ở cookie trình duyệt
-    res.clearCookie('refreshToken', {
-        httpOnly: true,
-        secure: true
-    })
-    return res.status(200).json({
-        success: true,
-        mes: 'logout in done'
-    })
-
-
-})
+    if (!cookie && !cookie.refreshToken) {
+      throw new Error('No refresh token');
+    }
+    //delete cookie in db
+    await User.findOneAndUpdate(
+      { refreshToken: cookie.refreshToken },
+      { refreshToken: '' },
+      { new: true }
+    );
+    res.clearCookie('refreshToken', { httpOnly: true, secure: true });
+    res.status(200).json({
+      success: true,
+      mes: 'Logout is done successfully',
+    });
+  });
 
 // Client gửi mail
 // Server check email có hợp lệ hay không => Gửi mail + kèm theo link (password change token)
@@ -201,6 +236,22 @@ const getUsers = asyncHandler(async (req, res) => {
     })
 })
 
+const getUsersToAdd = asyncHandler(async (req, res) => {
+    // Lấy ID của người dùng đang đăng nhập
+    const currentUserId = req.user._id;
+
+    // Tìm tất cả người dùng nhưng loại trừ tài khoản đang đăng nhập
+    const response = await User.find({ _id: { $ne: currentUserId } })
+        .select('-refreshToken -password -role'); // Loại bỏ trường refreshToken, password, và role
+
+    // Trả về danh sách người dùng
+    return res.status(200).json({
+        success: response.length > 0,  // Kiểm tra nếu có người dùng
+        users: response
+    });
+});
+
+
 
 // deleteuser 
 const deleteUser = asyncHandler(async (req, res) => {
@@ -214,16 +265,32 @@ const deleteUser = asyncHandler(async (req, res) => {
 })
 
 // update user
-const updateUser = asyncHandler(async (req, res) => {
-    const { _id } = req.user
-    if (!_id || Object.keys(req.body).length === 0) throw new Error('Missing input')
-    const response = await User.findByIdAndUpdate(_id, req.body, { new: true }).select('-password -role')
-    return res.status(200).json({
-        success: response ? true : false,
-        updatedUser: response ? response : 'Some thing went wrong'
-    })
-})
+// const updateUser = asyncHandler(async (req, res) => {
+//     const { _id } = req.user
+//     if (!_id || Object.keys(req.body).length === 0) throw new Error('Missing input')
+//     const response = await User.findByIdAndUpdate(_id, req.body, { new: true }).select('-password -role')
+//     return res.status(200).json({
+//         success: response ? true : false,
+//         updatedUser: response ? response : 'Some thing went wrong'
+//     })
+// })
 
+// Cập nhật User
+const updateUser = asyncHandler(async (req, res) => {
+    const { _id } = req.user;
+    const { firstname, lastname, email, mobile } = req.body;
+    const data = { firstname, lastname, email, mobile };
+    if (req.file) data.avatar = req.file.path;
+    if (!_id || Object.keys(req.body).length === 0)
+      throw new Error('Missing inputs');
+    const response = await User.findByIdAndUpdate(_id, data, {
+      new: true,
+    }).select('-password -role -refreshToken');
+    return res.status(200).json({
+      success: response ? true : false,
+      mes: response ? response : 'Some thing went wrong',
+    });
+  });
 // update user by admin
 const updateUserByAdmin = asyncHandler(async (req, res) => {
     const { uid } = req.params
@@ -335,5 +402,6 @@ module.exports = {
     updateUser,
     updateUserByAdmin,
     updateUserAddress,
-    updateUserCart
+    updateUserCart,
+    getUsersToAdd
 }

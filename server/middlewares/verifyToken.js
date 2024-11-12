@@ -2,8 +2,8 @@ const jwt = require('jsonwebtoken');
 const asyncHandler = require('express-async-handler');
 const { refreshAccessToken } = require('../controllers/user');
 
-const verifyAccessToken = asyncHandler(async (req, res, next) => {
-    console.log("VERIFY_ACCESS_TOKEN");
+const verifyAccessToken = asyncHandler(async (req, res, next) => { 
+    // console.log("VERIFY_ACCESS_TOKEN");
     
     // Bearer token
     // headers: { authorization: Bearer token}
@@ -12,11 +12,11 @@ const verifyAccessToken = asyncHandler(async (req, res, next) => {
         jwt.verify(token, process.env.JWT_SECRET, (err, decode) => {
             if (err) {
                 if (err.message === "jwt must be provided" || err === jwt.TokenExpiredError) {
-                    console.log("Bearer token expired, refreshing new access token");
+                    // console.log("Bearer token expired, refreshing new access token");
                     return refreshAccessToken(req, res, next)
                     
                 } else {
-                    console.log("Invalid bearer token, continuing with cookie token");
+                    // console.log("Invalid bearer token, continuing with cookie token");
                     return verifyAccessTokenWithCookie(req, res, next)
                 }
             }
@@ -30,6 +30,7 @@ const verifyAccessToken = asyncHandler(async (req, res, next) => {
 
 });
 
+
 const verifyAccessTokenWithCookie = asyncHandler(async (req, res, next) => {
     const cookie = req.cookies
 
@@ -38,7 +39,7 @@ const verifyAccessTokenWithCookie = asyncHandler(async (req, res, next) => {
     jwt.verify(cookie.accessToken, process.env.JWT_SECRET, (error, dec) => {
         if (error) {
             if (error.message === "jwt must be provided" || err === jwt.TokenExpiredError) {
-                console.log("Cookies token expired, refreshing new access token");
+                // console.log("Cookies token expired, refreshing new access token");
                 return refreshAccessToken(req, res, next)
             } else {
                 return res.status(403).json({
@@ -52,7 +53,6 @@ const verifyAccessTokenWithCookie = asyncHandler(async (req, res, next) => {
     })
 })
 
-// phân quyền user
 const isAdmin = asyncHandler((req, res, next) => {
     const { role } = req.user
     if (role !== 'admin')
@@ -66,5 +66,5 @@ const isAdmin = asyncHandler((req, res, next) => {
 module.exports = {
     verifyAccessToken,
     verifyAccessTokenWithCookie,
-    isAdmin,
+    isAdmin
 }
