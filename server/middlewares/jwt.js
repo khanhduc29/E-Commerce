@@ -11,3 +11,15 @@ module.exports = {
     genneratesAcessToken,
     genneratesRefreshToken
 }
+
+
+// const jwt = require('jsonwebtoken');
+
+// const generateAccessToken = (uid, role) => jwt.sign({ _id: uid, role }, process.env.JWT_SECRET, { expiresIn: process.env.ACCESS_TOKEN_MAX_AGE }); 
+
+// const generateRefreshToken = (uid, role) => jwt.sign({ _id: uid }, process.env.JWT_SECRET, { expiresIn: process.env.REFRESH_TOKEN_MAX_AGE });
+
+// module.exports = {
+//     generateAccessToken,
+//     generateRefreshToken
+// };

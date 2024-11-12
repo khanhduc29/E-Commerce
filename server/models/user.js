@@ -4,6 +4,9 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 
+
+
+
 const userSchema = new mongoose.Schema(
     {
         firstname: {
@@ -18,6 +21,9 @@ const userSchema = new mongoose.Schema(
             type: String,
             required: true,
             unique: true,
+        },
+        avatar: {
+            type: String
         },
         mobile: {
             type: String,
@@ -68,10 +74,12 @@ const userSchema = new mongoose.Schema(
         passwordResetExpires: {
             type: String,
         },
+       
     },
     { timestamps: true },
 );
 
+// middleware mã hóa mật khẩu trước khi lưu
 userSchema.pre('save', async function (next) {
     if (!this.isModified('password')) {
         next();
@@ -80,11 +88,14 @@ userSchema.pre('save', async function (next) {
     this.password = await bcrypt.hash(this.password, salt);
 });
 
+// Phương thức của userSchema
 userSchema.methods = {
+    // Kiểm tra mật khẩu
     isCorrectPassword: async function (password) {
-        
+
         return await bcrypt.compare(password, this.password);
     },
+    // Tạo token thay đổi mật khẩu
     createPasswordChangedToken: function () {
         const resetToken = crypto.randomBytes(32).toString('hex');
         this.passwordResetToken = crypto
@@ -94,6 +105,7 @@ userSchema.methods = {
         this.passwordResetExpires = Date.now() + 15 * 60 * 1000;
         return resetToken;
     },
+   
 };
 
 module.exports = mongoose.model('User', userSchema);
